@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aura Crate RNG</title>
+  <style>
+    @keyframes crateOpen {
+      0% {
+        transform: scale(1) rotateY(0deg);
+        opacity: 1;
+      }
+      50% {
+        transform: scale(1.2) rotateY(180deg);
+      }
+      100% {
+        transform: scale(0) rotateY(360deg);
+        opacity: 0;
+      }
+    }
+
+    @keyframes rollAura {
+      0% {
+        transform: translateY(-300px) scale(0.5);
+        opacity: 0;
+      }
+      50% {
+        transform: translateY(-20px) scale(1.1);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+      }
+    }
+
+    @keyframes particleShine {
+      0% {
+        transform: translate(0, 0) scale(1);
+        opacity: 1;
+      }
+      100% {
+        transform: translate(var(--tx), var(--ty)) scale(0);
+        opacity: 0;
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+    }
+
+    @keyframes shimmer {
+      0% {
+        background-position: -1000px 0;
+      }
+      100% {
+        background-position: 1000px 0;
+      }
+    }
+
+    @keyframes glow {
+      0%, 100% {
+        box-shadow: 0 0 10px rgba(255, 202, 87, 0.5), inset 0 0 20px rgba(255, 202, 87, 0.2);
+      }
+      50% {
+        box-shadow: 0 0 30px rgba(255, 202, 87, 1), inset 0 0 40px rgba(255, 202, 87, 0.4);
+      }
+    }
+
+    :root {
+      --bg: #0d1021;
+      --panel: #161b2e;
+      --panel-2: #1d2540;
+      --text: #edf3ff;
+      --muted: #a7b4d8;
+      --gold: #ffca57;
+      --green: #6ee7b7;
+      --blue: #7cc6ff;
+      --purple: #d7a4ff;
+      --pink: #ff8fcf;
+      --red: #ff6f7d;
+      --shadow: rgba(0, 0, 0, 0.25);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background:
+        radial-gradient(circle at top, #1d2850 0%, #10162d 35%, #090d18 100%);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .game {
+      width: min(1400px, 100%);
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 20px;
+    }
+
+    .panel {
+      background: rgba(22, 27, 46, 0.9);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 18px;
+      box-shadow: 0 10px 30px var(--shadow);
+      padding: 18px;
+    }
+
+    .left-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(120px, 1fr));
+      gap: 12px;
+    }
+
+    .stat-card {
+      background: var(--panel-2);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .value {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .button {
+      width: 100%;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, filter 0.15s ease;
+      margin-top: 8px;
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.06);
+    }
+
+    .button:active {
+      transform: translateY(1px);
+    }
+
+    .gold { background: linear-gradient(135deg, #ffd76a, #ffb703); color: #2a2000; }
+    .blue { background: linear-gradient(135deg, #76d7ff, #3ba8ff); color: #0e1d2d; }
+    .purple { background: linear-gradient(135deg, #dca8ff, #9d6dff); color: #1c1328; }
+    .green { background: linear-gradient(135deg, #7ef7c4, #48d9a5); color: #072c1f; }
+    .red { background: linear-gradient(135deg, #ff9aa2, #ff636f); color: #320b12; }
+
+    h2, h3 {
+      margin: 0 0 12px 0;
+    }
+
+    .section {
+      background: rgba(255,255,255,0.02);
+      border-radius: 12px;
+      padding: 14px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .crate-list, .inventory-list, .trade-list, .leaderboard-list {
+      display: grid;
+      gap: 10px;
+      max-height: 420px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .crate-card, .aura-card, .leaderboard-entry {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .crate-header, .aura-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .crate-name, .aura-name {
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .rarity-badge {
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .crate-meta, .aura-meta {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+
+    .main {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 16px;
+      padding: 18px 20px;
+    }
+
+    .title {
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+
+    .subtext {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    .status {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 12px;
+      padding: 16px;
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+
+    .status strong {
+      color: var(--gold);
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .mini-panel {
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 16px;
+      padding: 16px;
+    }
+
+    .mini-panel h3 {
+      margin-bottom: 10px;
+    }
+
+    .money-line {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--gold);
+    }
+
+    .inventory-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 12px;
+    }
+
+    .aura-card.selected {
+      border-color: rgba(123, 221, 255, 0.8);
+      box-shadow: 0 0 0 1px rgba(123, 221, 255, 0.8);
+    }
+
+    .aura-card button,
+    .crate-card button {
+      margin-top: 10px;
+      width: 100%;
+      border: none;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+      padding: 10px 12px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .aura-card button:hover,
+    .crate-card button:hover {
+      filter: brightness(1.08);
+    }
+
+    .sell-button {
+      background: linear-gradient(135deg, #ffb8c7, #ff7c90) !important;
+      color: #330a15 !important;
+    }
+
+    .trade-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    .small-btn {
+      padding: 8px 10px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 700;
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+    }
+
+    .leaderboard-entry {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+    }
+
+    .leaderboard-rank {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--gold);
+      min-width: 30px;
+    }
+
+    .leaderboard-info {
+      flex: 1;
+      margin-left: 12px;
+    }
+
+    .leaderboard-name {
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .leaderboard-value {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 12px;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 8px 12px;
+      font-weight: 700;
+      font-size: 14px;
+      transition: color 0.2s;
+    }
+
+    .tab-btn.active {
+      color: var(--blue);
+      border-bottom: 2px solid var(--blue);
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+    }
+
+    .content-section {
+      display: none;
+    }
+
+    .content-section.active {
+      display: block;
+    }
+
+    /* Animation Overlay */
+    .animation-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      pointer-events: none;
+    }
+
+    .crate-animation {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      perspective: 1200px;
+    }
+
+    .crate-box {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #ffd76a 0%, #ffb703 50%, #ff8c00 100%);
+      border-radius: 30px;
+      box-shadow: 0 20px 60px rgba(255, 202, 87, 0.5), inset -5px -5px 20px rgba(0, 0, 0, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 80px;
+      animation: crateOpen 1s ease-in-out forwards;
+      transform-style: preserve-3d;
+    }
+
+    .roll-container {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 280px;
+      height: 200px;
+      perspective: 1000px;
+    }
+
+    .aura-roll {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 20px;
+      background: linear-gradient(135deg, rgba(123, 221, 255, 0.2) 0%, rgba(212, 164, 255, 0.2) 100%);
+      border: 2px solid rgba(123, 221, 255, 0.4);
+      overflow: hidden;
+    }
+
+    .roll-item {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-radius: 18px;
+      font-weight: 700;
+      font-size: 24px;
+      opacity: 0.4;
+    }
+
+    .roll-item.active {
+      animation: rollAura 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    }
+
+    .aura-display {
+      text-align: center;
+      animation: rollAura 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    }
+
+    .aura-display-name {
+      font-size: 32px;
+      font-weight: 800;
+      margin-bottom: 10px;
+      color: var(--gold);
+    }
+
+    .aura-display-rarity {
+      font-size: 16px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .particle {
+      position: absolute;
+      pointer-events: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    @media (max-width: 1200px) {
+      .game {
+        grid-template-columns: 1fr;
+      }
+
+      .toolbar {
+        grid-template-columns: repeat(2, minmax(200px, 1fr));
+      }
+    }
+
+    @media (max-width: 900px) {
+      .toolbar {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="animation-overlay" id="animationOverlay"></div>
+
+  <div class="game">
+    <div class="left-panel panel">
+      <div class="stats">
+        <div class="stat-card">
+          <span class="label">Gold</span>
+          <span id="moneyStat" class="value">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="label">Luck</span>
+          <span id="luckStat" class="value">0%</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Crate Shop</h3>
+        <div id="crateList" class="crate-list"></div>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="topbar">
+        <div>
+          <div class="title">Aura Crate RNG</div>
+          <div class="subtext">Buy unlocks, open better crates, and grow passive aura income.</div>
+        </div>
+      </div>
+
+      <div class="status" id="statusBox">
+        Welcome! Buy crate unlocks and open the best auras you can afford.
+      </div>
+
+      <div class="toolbar">
+        <div class="mini-panel">
+          <h3>Player Stats</h3>
+          <div class="money-line">Gold: <span id="moneyText">0</span></div>
+          <div class="money-line">Luck: <span id="luckText">0%</span></div>
+          <div class="money-line">Passive / 20s: <span id="passiveText">0</span></div>
+          <button class="button blue" id="luckUpgradeBtn">Upgrade Luck</button>
+        </div>
+
+        <div class="mini-panel">
+          <h3>Trade</h3>
+          <div id="tradeList" class="trade-list"></div>
+        </div>
+
+        <div class="mini-panel">
+          <h3>Owned Crates</h3>
+          <div id="crateInventory" class="trade-list"></div>
+        </div>
+
+        <div class="mini-panel">
+          <h3>Index</h3>
+          <div class="leaderboard-list" id="indexList"></div>
+        </div>
+      </div>
+
+      <div class="toolbar" style="grid-template-columns: 1fr 1fr; margin-top: -8px;">
+        <div class="mini-panel">
+          <h3>💰 Money Leaderboard</h3>
+          <div class="leaderboard-list" id="moneyLeaderboard"></div>
+        </div>
+
+        <div class="mini-panel">
+          <h3>✨ Rarest Aura Leaderboard</h3>
+          <div class="leaderboard-list" id="rarityLeaderboard"></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Your Auras</h3>
+        <div id="inventoryList" class="inventory-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      money: 500,
+      luck: 0,
+      auras: {},
+      crateInventory: {
+        common: 0,
+        rare: 0,
+        epic: 0,
+        legendary: 0,
+        mythic: 0,
+        void: 0,
+        celestial: 0,
+        temporal: 0,
+        prismatic: 0,
+        shadow: 0,
+        eternal: 0,
+        nexus: 0
+      },
+      unlockedCrates: {
+        common: true
+      },
+      playerName: "Player" + Math.floor(Math.random() * 10000),
+      isAnimating: false
+    };
+
+    const crateDefs = {
+      common: {
+        name: "Common Crate",
+        unlockCost: 0,
+        openCost: 15,
+        level: 1,
+        description: "Basic aura runs. Cheap, easy to stack.",
+        emoji: "📦"
+      },
+      rare: {
+        name: "Rare Crate",
+        unlockCost: 250,
+        openCost: 45,
+        level: 2,
+        description: "Better odds for stronger auras.",
+        emoji: "🎁"
+      },
+      epic: {
+        name: "Epic Crate",
+        unlockCost: 900,
+        openCost: 120,
+        level: 3,
+        description: "Contains high-value auras and excellent gold output.",
+        emoji: "✨"
+      },
+      legendary: {
+        name: "Legendary Crate",
+        unlockCost: 2600,
+        openCost: 300,
+        level: 4,
+        description: "Rare elite aura drops.",
+        emoji: "💎"
+      },
+      mythic: {
+        name: "Mythic Crate",
+        unlockCost: 7000,
+        openCost: 800,
+        level: 5,
+        description: "Very powerful aura drops.",
+        emoji: "👑"
+      },
+      void: {
+        name: "Void Crate",
+        unlockCost: 18000,
+        openCost: 1800,
+        level: 6,
+        description: "Includes unique auras and the strongest drops.",
+        emoji: "🌑"
+      },
+      celestial: {
+        name: "Celestial Crate",
+        unlockCost: 45000,
+        openCost: 4200,
+        level: 7,
+        description: "Heavenly tier auras with divine power.",
+        emoji: "🌟"
+      },
+      temporal: {
+        name: "Temporal Crate",
+        unlockCost: 110000,
+        openCost: 10500,
+        level: 8,
+        description: "Auras that transcend time itself.",
+        emoji: "⏰"
+      },
+      prismatic: {
+        name: "Prismatic Crate",
+        unlockCost: 280000,
+        openCost: 26000,
+        level: 9,
+        description: "Ultra-rare auras that shimmer with all colors.",
+        emoji: "🌈"
+      },
+      shadow: {
+        name: "Shadow Crate",
+        unlockCost: 700000,
+        openCost: 65000,
+        level: 10,
+        description: "The rarest and most powerful auras known to exist.",
+        emoji: "🖤"
+      },
+      eternal: {
+        name: "Eternal Crate",
+        unlockCost: 1800000,
+        openCost: 160000,
+        level: 11,
+        description: "Beyond comprehension. Pure power.",
+        emoji: "♾️"
+      },
+      nexus: {
+        name: "Nexus Crate",
+        unlockCost: 4500000,
+        openCost: 400000,
+        level: 12,
+        description: "The convergence of all auras.",
+        emoji: "🔮"
+      }
+    };
+
+    const auraDefs = {
+      spark: { name: "Spark Aura", rarity: "Common", value: 20, goldPer20s: 2, level: 1, unique: false },
+      moss: { name: "Moss Aura", rarity: "Common", value: 22, goldPer20s: 2, level: 1, unique: false },
+      glimmer: { name: "Glimmer Aura", rarity: "Common", value: 24, goldPer20s: 3, level: 1, unique: false },
+      ember: { name: "Ember Aura", rarity: "Rare", value: 65, goldPer20s: 7, level: 2, unique: false },
+      frost: { name: "Frost Aura", rarity: "Rare", value: 70, goldPer20s: 8, level: 2, unique: false },
+      mist: { name: "Mist Aura", rarity: "Rare", value: 72, goldPer20s: 9, level: 2, unique: false },
+      prism: { name: "Prism Aura", rarity: "Rare", value: 84, goldPer20s: 10, level: 2, unique: false },
+      sunfire: { name: "Sunfire Aura", rarity: "Epic", value: 180, goldPer20s: 18, level: 3, unique: false },
+      nova: { name: "Nova Aura", rarity: "Epic", value: 200, goldPer20s: 22, level: 3, unique: false },
+      aurora: { name: "Aurora Aura", rarity: "Epic", value: 220, goldPer20s: 24, level: 3, unique: false },
+      stormglass: { name: "Stormglass Aura", rarity: "Epic", value: 240, goldPer20s: 26, level: 3, unique: false },
+      solar: { name: "Solar Aura", rarity: "Legendary", value: 500, goldPer20s: 50, level: 4, unique: false },
+      moonveil: { name: "Moonveil Aura", rarity: "Legendary", value: 560, goldPer20s: 58, level: 4, unique: false },
+      eclipse: { name: "Eclipse Aura", rarity: "Legendary", value: 620, goldPer20s: 68, level: 4, unique: false },
+      celestite: { name: "Celestite Aura", rarity: "Legendary", value: 680, goldPer20s: 75, level: 4, unique: false },
+      astral: { name: "Astral Aura", rarity: "Mythic", value: 1200, goldPer20s: 110, level: 5, unique: false },
+      voidbloom: { name: "Voidbloom Aura", rarity: "Mythic", value: 1350, goldPer20s: 128, level: 5, unique: false },
+      reaper: { name: "Reaper Aura", rarity: "Mythic", value: 1500, goldPer20s: 145, level: 5, unique: false },
+      starforge: { name: "Starforge Aura", rarity: "Mythic", value: 1700, goldPer20s: 160, level: 5, unique: false },
+      abyssal: { name: "Abyssal Crown", rarity: "Unique", value: 4200, goldPer20s: 260, level: 6, unique: true },
+      eternal: { name: "Eternal Nucleus", rarity: "Unique", value: 4700, goldPer20s: 300, level: 6, unique: true },
+      voidsigil: { name: "Void Sigil", rarity: "Unique", value: 5200, goldPer20s: 340, level: 6, unique: true },
+      epoch: { name: "Epoch Star", rarity: "Unique", value: 6100, goldPer20s: 410, level: 6, unique: true },
+      seraphim: { name: "Seraphim Aura", rarity: "Divine", value: 15000, goldPer20s: 850, level: 7, unique: true },
+      luminary: { name: "Luminary Aura", rarity: "Divine", value: 17000, goldPer20s: 950, level: 7, unique: true },
+      starweaver: { name: "Starweaver Aura", rarity: "Divine", value: 19500, goldPer20s: 1100, level: 7, unique: true },
+      cosmiccrown: { name: "Cosmic Crown", rarity: "Divine", value: 22000, goldPer20s: 1250, level: 7, unique: true },
+      chronosphere: { name: "Chronosphere", rarity: "Timeless", value: 52000, goldPer20s: 2800, level: 8, unique: true },
+      eons: { name: "Eons", rarity: "Timeless", value: 58000, goldPer20s: 3100, level: 8, unique: true },
+      timebender: { name: "Timebender", rarity: "Timeless", value: 65000, goldPer20s: 3500, level: 8, unique: true },
+      eternity: { name: "Eternity", rarity: "Timeless", value: 75000, goldPer20s: 4100, level: 8, unique: true },
+      prismveil: { name: "Prismveil", rarity: "Ultra-Rare", value: 180000, goldPer20s: 9200, level: 9, unique: true },
+      kaleidoscope: { name: "Kaleidoscope", rarity: "Ultra-Rare", value: 210000, goldPer20s: 10800, level: 9, unique: true },
+      spectralsoul: { name: "Spectral Soul", rarity: "Ultra-Rare", value: 245000, goldPer20s: 12500, level: 9, unique: true },
+      rainbowburst: { name: "Rainbow Burst", rarity: "Ultra-Rare", value: 285000, goldPer20s: 14800, level: 9, unique: true },
+      nightborne: { name: "Nightborne", rarity: "Omniscient", value: 680000, goldPer20s: 35000, level: 10, unique: true },
+      shadowking: { name: "Shadow King", rarity: "Omniscient", value: 850000, goldPer20s: 42000, level: 10, unique: true },
+      darkmatter: { name: "Dark Matter", rarity: "Omniscient", value: 1100000, goldPer20s: 55000, level: 10, unique: true },
+      voidknight: { name: "Void Knight", rarity: "Omniscient", value: 1500000, goldPer20s: 72000, level: 10, unique: true },
+      ascendant: { name: "Ascendant", rarity: "Transcendent", value: 3200000, goldPer20s: 145000, level: 11, unique: true },
+      infinity: { name: "Infinity", rarity: "Transcendent", value: 4100000, goldPer20s: 185000, level: 11, unique: true },
+      nexuscore: { name: "Nexus Core", rarity: "Transcendent", value: 5300000, goldPer20s: 240000, level: 11, unique: true },
+      singularity: { name: "Singularity", rarity: "Transcendent", value: 6800000, goldPer20s: 310000, level: 11, unique: true },
+      omniverse: { name: "Omniverse", rarity: "Infinite", value: 15000000, goldPer20s: 680000, level: 12, unique: true },
+      void: { name: "The Void", rarity: "Infinite", value: 19000000, goldPer20s: 880000, level: 12, unique: true },
+      genesis: { name: "Genesis", rarity: "Infinite", value: 24000000, goldPer20s: 1100000, level: 12, unique: true },
+      apotheosis: { name: "Apotheosis", rarity: "Infinite", value: 32000000, goldPer20s: 1500000, level: 12, unique: true }
+    };
+
+    const allAuras = Object.keys(auraDefs);
+    let leaderboards = {
+      money: [
+        { name: "Player8423", money: 5200000 },
+        { name: "Player5891", money: 3800000 },
+        { name: "Player1024", money: 2100000 },
+        { name: state.playerName, money: state.money }
+      ],
+      rarest: [
+        { name: "Player8423", aura: "Void Knight", rarity: "Omniscient" },
+        { name: "Player5891", aura: "Dark Matter", rarity: "Omniscient" },
+        { name: "Player1024", aura: "Nightborne", rarity: "Omniscient" },
+        { name: state.playerName, aura: "None", rarity: "N/A" }
+      ]
+    };
+
+    function createParticles(x, y, color) {
+      for (let i = 0; i < 15; i++) {
+        const particle = document.createElement("div");
+        particle.className = "particle";
+        particle.style.left = x + "px";
+        particle.style.top = y + "px";
+        particle.style.backgroundColor = color;
+        particle.style.setProperty("--tx", (Math.random() - 0.5) * 300 + "px");
+        particle.style.setProperty("--ty", (Math.random() - 0.5) * 300 + "px");
+        particle.style.animation = `particleShine 0.8s ease-out forwards`;
+        document.getElementById("animationOverlay").appendChild(particle);
+        setTimeout(() => particle.remove(), 800);
+      }
+    }
+
+    async function playRollAnimation(auraId) {
+      const aura = auraDefs[auraId];
+      const overlay = document.getElementById("animationOverlay");
+      
+      const rollContainer = document.createElement("div");
+      rollContainer.className = "roll-container";
+      
+      const rollItems = [
+        { name: "Opening...", color: "#7cc6ff" },
+        { name: "Rolling...", color: "#d7a4ff" },
+        { name: "Spinning...", color: "#ff8fcf" },
+        { name: aura.name, color: "#ffca57" }
+      ];
+
+      rollItems.forEach((item, idx) => {
+        const div = document.createElement("div");
+        div.className = "roll-item";
+        div.style.backgroundColor = item.color + "33";
+        div.style.borderColor = item.color;
+        div.textContent = item.name;
+        div.style.animation = `rollAura ${0.2 + idx * 0.3}s ease-out forwards`;
+        rollContainer.appendChild(div);
+      });
+
+      overlay.appendChild(rollContainer);
+
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      rollContainer.remove();
+
+      const display = document.createElement("div");
+      display.className = "aura-display";
+      display.innerHTML = `
+        <div class="aura-display-name">${aura.name}</div>
+        <div class="aura-display-rarity">${aura.rarity}</div>
+      `;
+      overlay.appendChild(display);
+
+      const colors = {
+        "Common": "#6ee7b7",
+        "Rare": "#7cc6ff",
+        "Epic": "#d7a4ff",
+        "Legendary": "#ffca57",
+        "Mythic": "#ff8fcf",
+        "Unique": "#ff6f7d",
+        "Divine": "#ffd700",
+        "Timeless": "#c0c0c0",
+        "Ultra-Rare": "#ff69b4",
+        "Omniscient": "#8b00ff",
+        "Transcendent": "#ff0080",
+        "Infinite": "#ff1493"
+      };
+
+      createParticles(window.innerWidth / 2, window.innerHeight / 2, colors[aura.rarity] || "#ffca57");
+
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      display.remove();
+    }
+
+    async function playOpenAnimation() {
+      const overlay = document.getElementById("animationOverlay");
+      const crateAnim = document.createElement("div");
+      crateAnim.className = "crate-animation";
+      
+      const crateBox = document.createElement("div");
+      crateBox.className = "crate-box";
+      crateBox.textContent = "📦";
+      
+      crateAnim.appendChild(crateBox);
+      overlay.appendChild(crateAnim);
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      crateAnim.remove();
+    }
+
+    function getRarestAura() {
+      let rarest = null;
+      let rarestLevel = -1;
+      for (const auraId in state.auras) {
+        if (state.auras[auraId] > 0) {
+          const aura = auraDefs[auraId];
+          if (aura.level > rarestLevel) {
+            rarestLevel = aura.level;
+            rarest = aura;
+          }
+        }
+      }
+      return rarest;
+    }
+
+    function updateLeaderboards() {
+      leaderboards.money = leaderboards.money.filter(entry => entry.name !== state.playerName);
+      leaderboards.money.push({ name: state.playerName, money: state.money });
+      leaderboards.money.sort((a, b) => b.money - a.money);
+      leaderboards.money = leaderboards.money.slice(0, 10);
+
+      const rarest = getRarestAura();
+      leaderboards.rarest = leaderboards.rarest.filter(entry => entry.name !== state.playerName);
+      leaderboards.rarest.push({ 
+        name: state.playerName, 
+        aura: rarest ? rarest.name : "None",
+        rarity: rarest ? rarest.rarity : "N/A"
+      });
+      leaderboards.rarest.sort((a, b) => {
+        const aLevel = auraDefs[Object.keys(auraDefs).find(k => auraDefs[k].name === a.aura)]?.level || 0;
+        const bLevel = auraDefs[Object.keys(auraDefs).find(k => auraDefs[k].name === b.aura)]?.level || 0;
+        return bLevel - aLevel;
+      });
+      leaderboards.rarest = leaderboards.rarest.slice(0, 10);
+    }
+
+    function formatNumber(num) {
+      return new Intl.NumberFormat().format(Math.floor(num));
+    }
+
+    function getPassiveIncome() {
+      let total = 0;
+      for (const auraId in state.auras) {
+        const aura = auraDefs[auraId];
+        if (!aura) continue;
+        total += state.auras[auraId] * aura.goldPer20s;
+      }
+      return total;
+    }
+
+    function setStatus(msg) {
+      document.getElementById("statusBox").innerHTML = msg;
+    }
+
+    function getAuraPool(crateKey) {
+      const crate = crateDefs[crateKey];
+      if (!crate) return [];
+      return allAuras.filter(id => {
+        const aura = auraDefs[id];
+        return aura.level <= crate.level + 1 && aura.level >= Math.max(1, crate.level - 1);
+      });
+    }
+
+    async function buyCrateUnlock(crateKey) {
+      const crate = crateDefs[crateKey];
+      if (!crate) return;
+
+      if (state.unlockedCrates[crateKey]) {
+        setStatus(`${crate.name} is already unlocked.`);
+        return;
+      }
+
+      if (state.money < crate.unlockCost) {
+        setStatus(`You need ${formatNumber(crate.unlockCost)} gold to unlock ${crate.name}.`);
+        return;
+      }
+
+      state.money -= crate.unlockCost;
+      state.unlockedCrates[crateKey] = true;
+      setStatus(`You unlocked the <strong>${crate.name}</strong> for ${formatNumber(crate.unlockCost)} gold.`);
+      rerender();
+    }
+
+    async function openCrate(crateKey) {
+      if (state.isAnimating) return;
+      
+      const crate = crateDefs[crateKey];
+      if (!crate) return;
+
+      if (!state.unlockedCrates[crateKey]) {
+        setStatus(`You must buy the unlock for <strong>${crate.name}</strong> first.`);
+        return;
+      }
+
+      if (state.money < crate.openCost) {
+        setStatus(`Not enough gold. ${crate.name} costs ${formatNumber(crate.openCost)} gold to open.`);
+        return;
+      }
+
+      state.isAnimating = true;
+      state.money -= crate.openCost;
+      state.crateInventory[crateKey] += 1;
+
+      await playOpenAnimation();
+
+      const pool = getAuraPool(crateKey);
+      if (pool.length === 0) {
+        setStatus(`Your ${crate.name} was empty...`);
+        state.isAnimating = false;
+        rerender();
+        return;
+      }
+
+      let chosenId = null;
+      const uniqueRoll = Math.random() < (0.15 + state.luck / 100);
+      if (uniqueRoll) {
+        const uniquePool = pool.filter(id => auraDefs[id].unique);
+        if (uniquePool.length > 0) {
+          chosenId = uniquePool[Math.floor(Math.random() * uniquePool.length)];
+        }
+      }
+
+      if (!chosenId) {
+        const weights = pool.map(id => {
+          const aura = auraDefs[id];
+          let weight = aura.unique ? 0.3 : aura.level * 20 + 20;
+          weight += state.luck * 0.8;
+          return weight;
+        });
+
+        const total = weights.reduce((sum, val) => sum + val, 0);
+        let roll = Math.random() * total;
+        for (let i = 0; i < pool.length; i++) {
+          roll -= weights[i];
+          if (roll <= 0) {
+            chosenId = pool[i];
+            break;
+          }
+        }
+      }
+
+      if (!chosenId) {
+        chosenId = pool[Math.floor(Math.random() * pool.length)];
+      }
+
+      await playRollAnimation(chosenId);
+
+      state.auras[chosenId] = (state.auras[chosenId] || 0) + 1;
+      setStatus(`You got <strong>${auraDefs[chosenId].name}</strong>! (${auraDefs[chosenId].rarity})`);
+      state.isAnimating = false;
+      rerender();
+    }
+
+    function sellAura(auraId, amount = 1) {
+      if (!state.auras[auraId] || state.auras[auraId] < amount) return;
+
+      const aura = auraDefs[auraId];
+      state.auras[auraId] -= amount;
+      if (state.auras[auraId] <= 0) delete state.auras[auraId];
+
+      const total = aura.value * amount * 0.8;
+      state.money += total;
+      setStatus(`Sold ${amount} ${aura.name} for <strong>${formatNumber(total)}</strong> gold.`);
+      rerender();
+    }
+
+    function buyLuckUpgrade() {
+      const cost = 200 + state.luck * 30;
+      if (state.money < cost) {
+        setStatus(`You need ${formatNumber(cost)} gold to upgrade luck.`);
+        return;
+      }
+
+      state.money -= cost;
+      state.luck += 5;
+      setStatus(`Luck upgraded to <strong>${state.luck}%</strong> for ${formatNumber(cost)} gold.`);
+      rerender();
+    }
+
+    function passiveTick() {
+      const income = getPassiveIncome();
+      if (income > 0) {
+        state.money += income;
+        setStatus(`Passive income: <strong>${formatNumber(income)}</strong> gold.`);
+      }
+      rerender();
+    }
+
+    function drawCrates() {
+      const crateList = document.getElementById("crateList");
+      crateList.innerHTML = "";
+
+      Object.entries(crateDefs).forEach(([key, crate]) => {
+        const unlocked = !!state.unlockedCrates[key];
+        const card = document.createElement("div");
+        card.className = "crate-card";
+
+        const header = document.createElement("div");
+        header.className = "crate-header";
+        header.innerHTML = `
+          <div class="crate-name">${crate.emoji} ${crate.name}</div>
+          <div class="rarity-badge">LV${crate.level}</div>
+        `;
+        card.appendChild(header);
+
+        const meta = document.createElement("div");
+        meta.className = "crate-meta";
+        meta.innerHTML = `
+          Unlock: <strong>${formatNumber(crate.unlockCost)}</strong><br>
+          Open: <strong>${formatNumber(crate.openCost)}</strong><br>
+          ${unlocked ? "<strong style='color: #6ee7b7;'>✓ Unlocked</strong>" : "<strong style='color: #ff6f7d;'>✗ Locked</strong>"}
+        `;
+        card.appendChild(meta);
+
+        const btn = document.createElement("button");
+        btn.textContent = unlocked ? "Open Crate" : "Buy Unlock";
+        btn.className = unlocked ? "blue" : "purple";
+        btn.disabled = state.isAnimating;
+        btn.onclick = () => {
+          if (unlocked) openCrate(key);
+          else buyCrateUnlock(key);
+        };
+        card.appendChild(btn);
+
+        crateList.appendChild(card);
+      });
+    }
+
+    function drawInventory() {
+      const inv = document.getElementById("inventoryList");
+      inv.innerHTML = "";
+
+      const entries = Object.entries(state.auras).filter(([id, qty]) => qty > 0);
+
+      if (entries.length === 0) {
+        inv.innerHTML = "<div class='aura-card'><div class='aura-meta'>Open crates to start collecting auras!</div></div>";
+        return;
+      }
+
+      entries.forEach(([id, qty]) => {
+        const aura = auraDefs[id];
+        const card = document.createElement("div");
+        card.className = "aura-card";
+
+        card.innerHTML = `
+          <div class="aura-header">
+            <div class="aura-name">${aura.name}</div>
+            <div class="rarity-badge">${aura.rarity}</div>
+          </div>
+          <div class="aura-meta">
+            Qty: <strong>${qty}</strong><br>
+            Value: <strong>${formatNumber(aura.value)}</strong><br>
+            Passive: <strong>${formatNumber(aura.goldPer20s)}</strong>/20s
+          </div>
+          <button class="sell-button">Sell 1</button>
+        `;
+
+        card.querySelector("button").onclick = () => sellAura(id);
+        inv.appendChild(card);
+      });
+    }
+
+    function drawTrade() {
+      const container = document.getElementById("tradeList");
+      container.innerHTML = "";
+
+      const allEntries = Object.entries(state.auras).filter(([id, count]) => count > 0);
+
+      if (allEntries.length === 0) {
+        container.innerHTML = "<div class='aura-card'><div class='aura-meta'>No items to trade.</div></div>";
+        return;
+      }
+
+      const [auraId, count] = allEntries[0];
+      const aura = auraDefs[auraId];
+
+      const card = document.createElement("div");
+      card.className = "aura-card";
+      card.innerHTML = `
+        <div class="aura-header">
+          <div class="aura-name">${aura.name}</div>
+          <div class="rarity-badge">${aura.rarity}</div>
+        </div>
+        <div class="aura-meta">
+          Own: <strong>${count}</strong><br>
+          Sell: <strong>${formatNumber(Math.floor(aura.value * 0.8))}</strong>
+        </div>
+        <div class="trade-row">
+          <button class="small-btn" id="sellOneBtn">Sell 1</button>
+          <button class="small-btn" id="sellAllBtn">Sell all</button>
+        </div>
+      `;
+
+      card.querySelector("#sellOneBtn").onclick = () => sellAura(auraId, 1);
+      card.querySelector("#sellAllBtn").onclick = () => sellAura(auraId, count);
+      container.appendChild(card);
+    }
+
+    function drawCrateInventory() {
+      const container = document.getElementById("crateInventory");
+      container.innerHTML = "";
+
+      let hasCrates = false;
+      Object.entries(state.crateInventory).forEach(([crateKey, count]) => {
+        if (count <= 0) return;
+        hasCrates = true;
+
+        const crate = crateDefs[crateKey];
+        const row = document.createElement("div");
+        row.className = "crate-card";
+        row.innerHTML = `
+          <div class="crate-header">
+            <div class="crate-name">${crate.emoji} ${crate.name}</div>
+            <div class="rarity-badge">${count}</div>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+
+      if (!hasCrates) {
+        container.innerHTML = "<div class='aura-card'><div class='aura-meta'>No crates opened yet.</div></div>";
+      }
+    }
+
+    function drawIndex() {
+      const container = document.getElementById("indexList");
+      container.innerHTML = "";
+
+      const rarest = getRarestAura();
+      const passive = getPassiveIncome();
+      const cratesOpened = Object.values(state.crateInventory).reduce((a, b) => a + b, 0);
+      const auraCount = Object.values(state.auras).reduce((a, b) => a + b, 0);
+
+      const indexData = [
+        { label: "Crates Opened", value: cratesOpened },
+        { label: "Auras Owned", value: auraCount },
+        { label: "Rarest Aura", value: rarest ? rarest.name : "None" },
+        { label: "Passive / 20s", value: formatNumber(passive) }
+      ];
+
+      indexData.forEach((item, idx) => {
+        const entry = document.createElement("div");
+        entry.className = "leaderboard-entry";
+        entry.innerHTML = `
+          <div class="leaderboard-rank">#${idx + 1}</div>
+          <div class="leaderboard-info">
+            <div class="leaderboard-name">${item.label}</div>
+            <div class="leaderboard-value">${item.value}</div>
+          </div>
+        `;
+        container.appendChild(entry);
+      });
+    }
+
+    function drawLeaderboards() {
+      updateLeaderboards();
+
+      const moneyContainer = document.getElementById("moneyLeaderboard");
+      moneyContainer.innerHTML = "";
+      leaderboards.money.forEach((entry, idx) => {
+        const row = document.createElement("div");
+        row.className = "leaderboard-entry";
+        row.innerHTML = `
+          <div class="leaderboard-rank">#${idx + 1}</div>
+          <div class="leaderboard-info">
+            <div class="leaderboard-name">${entry.name}</div>
+            <div class="leaderboard-value">${formatNumber(entry.money)} gold</div>
+          </div>
+        `;
+        moneyContainer.appendChild(row);
+      });
+
+      const rarityContainer = document.getElementById("rarityLeaderboard");
+      rarityContainer.innerHTML = "";
+      leaderboards.rarest.forEach((entry, idx) => {
+        const row = document.createElement("div");
+        row.className = "leaderboard-entry";
+        row.innerHTML = `
+          <div class="leaderboard-rank">#${idx + 1}</div>
+          <div class="leaderboard-info">
+            <div class="leaderboard-name">${entry.name}</div>
+            <div class="leaderboard-value">${entry.aura}</div>
+          </div>
+        `;
+        rarityContainer.appendChild(row);
+      });
+    }
+
+    function updateStats() {
+      document.getElementById("moneyStat").textContent = formatNumber(state.money);
+      document.getElementById("luckStat").textContent = `${state.luck}%`;
+      document.getElementById("moneyText").textContent = formatNumber(state.money);
+      document.getElementById("luckText").textContent = `${state.luck}%`;
+      const passive = getPassiveIncome();
+      document.getElementById("passiveText").textContent = formatNumber(passive);
+    }
+
+    function rerender() {
+      updateStats();
+      drawCrates();
+      drawInventory();
+      drawTrade();
+      drawCrateInventory();
+      drawIndex();
+      drawLeaderboards();
+    }
+
+    document.getElementById("luckUpgradeBtn").onclick = buyLuckUpgrade;
+    setInterval(passiveTick, 20000);
+
+    rerender();
+  </script>
+</body>
+</html>
